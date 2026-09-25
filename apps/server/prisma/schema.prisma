@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS (DATABASE_SCHEMA §2) ───────────────────────────────────────────────
+
+enum Role {
+  STAFF
+  ADMIN
+
+  @@map("role")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+
+  @@map("gender")
+}
+
+enum TokenType {
+  SLOT
+  LIVE
+  KIOSK
+
+  @@map("token_type")
+}
+
+enum Priority {
+  NONE
+  ELDERLY
+  PREGNANT
+  EMERGENCY
+
+  @@map("priority")
+}
+
+enum TokenStatus {
+  WAITING
+  CALLED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+
+  @@map("token_status")
+}
+
+enum QueueAction {
+  CREATED
+  CALLED
+  SKIPPED
+  NO_SHOW
+  COMPLETED
+  CANCELLED
+  NOTIFIED_THREE_AWAY
+
+  @@map("queue_action")
+}
+
+enum ActorType {
+  PATIENT
+  STAFF
+  ADMIN
+  KIOSK
+  SYSTEM
+  SIMULATOR
+
+  @@map("actor_type")
+}
+
+enum NotificationKind {
+  TOKEN_CREATED
+  THREE_AWAY
+  CALLED
+  SKIPPED
+  NO_SHOW
+
+  @@map("notification_kind")
+}
+
+enum NotificationChannel {
+  IN_APP
+  SMS_SIMULATED
+  SMS_TWILIO
+
+  @@map("notification_channel")
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+
+  @@map("notification_status")
+}
+
+// ─── MODELS (DATABASE_SCHEMA §3) ──────────────────────────────────────────────
+
+model Department {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @unique @db.VarChar(60)
+  code          String   @unique @db.VarChar(4)
+  avgConsultMin Decimal  @default(8) @db.Decimal(5, 2) @map("avg_consult_min")
+  displayOrder  Int      @default(0) @db.SmallInt @map("display_order")
+  createdAt     DateTime @default(now()) @db.Timestamptz @map("created_at")
+
+  doctors           Doctor[]
+  tokens            Token[]
+  deptDailyCounters DeptDailyCounter[]
+
+  @@map("departments")
+}
+
+model Doctor {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId  String   @db.Uuid @map("department_id")
+  name          String   @db.VarChar(80)
+  room          String   @db.VarChar(20)
+  isActive      Boolean  @default(true) @map("is_active")
+  avgConsultMin Decimal  @default(8) @db.Decimal(5, 2) @map("avg_consult_min")
+  createdAt     DateTime @default(now()) @db.Timestamptz @map("created_at")
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  slots      Slot[]
+  staff      Staff?
+  tokens     Token[]
+
+  @@index([departmentId, isActive])
+  @@map("doctors")
+}
+
+model Slot {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctorId    String   @db.Uuid @map("doctor_id")
+  serviceDate DateTime @db.Date @map("service_date")
+  startTime   DateTime @db.Timestamptz @map("start_time")
+  endTime     DateTime @db.Timestamptz @map("end_time")
+  capacity    Int      @default(3) @db.SmallInt
+  bookedCount Int      @default(0) @db.SmallInt @map("booked_count")
+
+  doctor Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  tokens Token[]
+
+  @@unique([doctorId, startTime])
+  @@index([doctorId, serviceDate])
+  @@map("slots")
+}
+
+model Patient {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone     String?   @unique @db.VarChar(10)
+  name      String?   @db.VarChar(80)
+  age       Int?      @db.SmallInt
+  gender    Gender?
+  consentAt DateTime? @db.Timestamptz @map("consent_at")
+  isWalkIn  Boolean   @default(false) @map("is_walk_in")
+  createdAt DateTime  @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt DateTime  @updatedAt @db.Timestamptz @map("updated_at")
+
+  tokens        Token[]
+  notifications Notification[]
+
+  @@map("patients")
+}
+
+model OtpRequest {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone      String    @db.VarChar(10)
+  codeHash   String    @db.Char(64) @map("code_hash")
+  expiresAt  DateTime  @db.Timestamptz @map("expires_at")
+  attempts   Int       @default(0) @db.SmallInt
+  consumedAt DateTime? @db.Timestamptz @map("consumed_at")
+  createdAt  DateTime  @default(now()) @db.Timestamptz @map("created_at")
+
+  @@index([phone, createdAt(sort: Desc)])
+  @@map("otp_requests")
+}
+
+model Staff {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username     String   @unique @db.VarChar(40)
+  passwordHash String   @db.VarChar(100) @map("password_hash")
+  name         String   @db.VarChar(80)
+  role         Role     @default(STAFF)
+  doctorId     String?  @unique @db.Uuid @map("doctor_id")
+  createdAt    DateTime @default(now()) @db.Timestamptz @map("created_at")
+
+  doctor Doctor? @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+
+  @@map("staff")
+}
+
+model Token {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientId         String      @db.Uuid @map("patient_id")
+  departmentId      String      @db.Uuid @map("department_id")
+  doctorId          String      @db.Uuid @map("doctor_id")
+  slotId            String?     @db.Uuid @map("slot_id")
+  serviceDate       DateTime    @db.Date @map("service_date")
+  tokenSeq          Int         @map("token_seq")
+  tokenNo           String      @db.VarChar(12) @map("token_no")
+  type              TokenType
+  priority          Priority    @default(NONE)
+  status            TokenStatus @default(WAITING)
+  sortKey           BigInt      @map("sort_key")
+  slotTime          DateTime?   @db.Timestamptz @map("slot_time")
+  skipCount         Int         @default(0) @db.SmallInt @map("skip_count")
+  notifiedThreeAway Boolean     @default(false) @map("notified_three_away")
+  createdAt         DateTime    @default(now()) @db.Timestamptz @map("created_at")
+  calledAt          DateTime?   @db.Timestamptz @map("called_at")
+  endedAt           DateTime?   @db.Timestamptz @map("ended_at")
+  updatedAt         DateTime    @updatedAt @db.Timestamptz @map("updated_at")
+
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  department    Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  doctor        Doctor         @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  slot          Slot?          @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  queueEvents   QueueEvent[]
+  notifications Notification[]
+
+  @@unique([departmentId, serviceDate, tokenSeq])
+  @@index([doctorId, status, sortKey, createdAt, id])
+  @@index([departmentId, serviceDate, status])
+  @@index([patientId, serviceDate])
+  @@index([serviceDate, status])
+  @@map("tokens")
+}
+
+model DeptDailyCounter {
+  departmentId String   @db.Uuid @map("department_id")
+  serviceDate  DateTime @db.Date @map("service_date")
+  lastSeq      Int      @default(0) @map("last_seq")
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([departmentId, serviceDate])
+  @@map("dept_daily_counters")
+}
+
+// queue_events.department_id and .doctor_id are denormalized (no FK constraint)
+model QueueEvent {
+  id           BigInt      @id @default(autoincrement())
+  tokenId      String      @db.Uuid @map("token_id")
+  departmentId String      @db.Uuid @map("department_id")
+  doctorId     String      @db.Uuid @map("doctor_id")
+  action       QueueAction
+  actorType    ActorType   @map("actor_type")
+  actorId      String?     @db.Uuid @map("actor_id")
+  meta         Json?       @db.JsonB
+  createdAt    DateTime    @default(now()) @db.Timestamptz @map("created_at")
+
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@index([tokenId])
+  @@index([departmentId, createdAt])
+  @@map("queue_events")
+}
+
+model Notification {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenId       String             @db.Uuid @map("token_id")
+  patientId     String?            @db.Uuid @map("patient_id")
+  kind          NotificationKind
+  channel       NotificationChannel
+  toPhoneMasked String?            @db.VarChar(12) @map("to_phone_masked")
+  message       String             @db.Text
+  status        NotificationStatus @default(SENT)
+  createdAt     DateTime           @default(now()) @db.Timestamptz @map("created_at")
+
+  token   Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([tokenId])
+  @@map("notifications")
+}
