@@ -36,7 +36,7 @@ export default function SmsLog() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
-        <h1 className="text-lg font-semibold text-slate-900">Simulated SMS log</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Simulated SMS log</h1>
         <Link to="/admin" className="text-sm text-slate-500 underline-offset-2 hover:underline">
           Back to dashboard
         </Link>
