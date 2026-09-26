@@ -1,0 +1,69 @@
+// Fake Socket.IO client with the exact same exported surface as ../lib/socket.js,
+// so a consumer can switch between the two with one import:
+//
+//   import * as realSocket from '@/lib/socket.js';
+//   import * as mockSocket from '@/mocks/mockSocket.js';
+//   const socket = import.meta.env.VITE_USE_MOCKS === 'true' ? mockSocket : realSocket;
+//
+// Kept deliberately separate from lib/socket.js (no mock-awareness in the real
+// client) per the project's mock/real separation rule.
+import { SOCKET_EVENTS, rooms } from '../lib/contract.js';
+import { queueSnapshot, adminStats, simulatorStatus } from './fixtures.js';
+
+export { SOCKET_EVENTS, rooms };
+
+const SNAPSHOT_BY_EVENT = {
+  [SOCKET_EVENTS.SUBSCRIBE_DOCTOR]: (payload) => ({
+    room: rooms.doctor(payload?.doctorId ?? 'doc-gm-1'),
+    snapshot: queueSnapshot,
+  }),
+  [SOCKET_EVENTS.SUBSCRIBE_ADMIN]: () => ({
+    room: rooms.admin(),
+    snapshot: { stats: adminStats, simulator: simulatorStatus },
+  }),
+};
+
+let connectionState = 'live';
+const connectionListeners = new Set();
+const eventListeners = new Map(); // event -> Set(handler)
+
+export function subscribe(event, payload, { onSnapshot } = {}) {
+  const build = SNAPSHOT_BY_EVENT[event];
+  return new Promise((resolve, reject) => {
+    if (!build) {
+      reject(new Error(`mockSocket: no fixture wired for "${event}"`));
+      return;
+    }
+    const ack = { ok: true, ...build(payload) };
+    onSnapshot?.(ack.snapshot);
+    resolve(ack);
+  });
+}
+
+export function unsubscribe() {
+  // no-op: fixtures don't hold live room membership
+}
+
+export function on(event, handler) {
+  if (!eventListeners.has(event)) eventListeners.set(event, new Set());
+  eventListeners.get(event).add(handler);
+  return () => eventListeners.get(event)?.delete(handler);
+}
+
+/** Test helper: push a fake server event to anything listening via on(). */
+export function emit(event, payload) {
+  eventListeners.get(event)?.forEach((handler) => handler(payload));
+}
+
+export function getConnectionState() {
+  return connectionState;
+}
+
+export function onConnectionChange(handler) {
+  connectionListeners.add(handler);
+  return () => connectionListeners.delete(handler);
+}
+
+export function connect() {
+  connectionState = 'live';
+}
