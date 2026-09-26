@@ -45,7 +45,7 @@ export default function AdminDashboard() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-slate-900">Admin dashboard</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">Admin dashboard</h1>
           <Link to="/admin/sms" className="text-sm text-slate-500 underline-offset-2 hover:underline">
             SMS log
           </Link>
