@@ -1,12 +1,26 @@
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { ConnectionPill } from '@/components/ConnectionPill.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { getUser, logout } from '@/lib/auth.js';
+import * as realSocket from '@/lib/socket.js';
+import * as mockSocket from '@/mocks/mockSocket.js';
+
+const socket = import.meta.env.VITE_USE_MOCKS === 'true' ? mockSocket : realSocket;
 
 // Desktop shell (1366px target, FINAL_PROJECT_STRUCTURE.md §3) for /staff/* and /admin/*.
 export function OpsLayout() {
   const navigate = useNavigate();
   const user = getUser();
+  // Reuses the same single-socket-per-tab connection state every page hook
+  // already reads (lib/socket.js §"One socket per tab") — no separate
+  // connection tracking here, just the shared getConnectionState()/
+  // onConnectionChange() primitive. This is the raw live/offline state;
+  // the "polling" refinement is page-specific (depends on which REST
+  // endpoint that page would fall back to) and stays in the page hooks.
+  const [connection, setConnection] = useState(socket.getConnectionState());
+
+  useEffect(() => socket.onConnectionChange(setConnection), []);
 
   function handleLogout() {
     logout();
@@ -20,7 +34,7 @@ export function OpsLayout() {
           MediQueue
         </Link>
         <div className="flex items-center gap-3">
-          <ConnectionPill state="connecting" />
+          <ConnectionPill state={connection} />
           {user && (
             <Button variant="ghost" onClick={handleLogout}>
               Log out
