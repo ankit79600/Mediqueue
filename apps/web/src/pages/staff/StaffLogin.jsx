@@ -72,10 +72,11 @@ export default function StaffLogin() {
 
   if (doctorChoices) {
     return (
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto flex max-w-md flex-col gap-4">
+        <Button onClick={() => navigate('/admin')}>Open admin dashboard</Button>
         <Card>
           <CardHeader>
-            <CardTitle>Choose a doctor's queue</CardTitle>
+            <CardTitle>…or open a doctor's queue directly</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {doctorChoices.length === 0 && <p className="text-sm text-slate-500">No doctors found.</p>}
