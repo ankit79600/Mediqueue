@@ -1,14 +1,14 @@
 import { useAdminStats } from '@/hooks/useAdminStats.js';
 import { ConnectionPill } from '@/components/ConnectionPill.jsx';
+import { StatCard } from '@/components/StatCard.jsx';
+import { DepartmentTable } from '@/components/admin/DepartmentTable.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { ApiError } from '@/lib/api.js';
 
-// MVP_CHECKLIST.md M5. This is the dashboard shell (subphase 3A): auth guard
-// (RequireRole in App.jsx), connection state, loading/error handling, and the
-// confirmed admin snapshot. KPI cards, department table, and charts are
-// subphase 3B/3C.
+// MVP_CHECKLIST.md M5. Shell (3A) + KPI row / department statistics (3B).
+// Charts and overload highlighting are 3C; live stats:update is 3D.
 function errorMessage(err) {
   if (err instanceof ApiError) {
     if (err.code === 'FORBIDDEN') return "You don't have admin access.";
@@ -31,7 +31,12 @@ export default function AdminDashboard() {
 
       {status === 'loading' && (
         <div className="flex flex-col gap-3">
-          <Skeleton className="h-24 w-full" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </div>
           <Skeleton className="h-64 w-full" />
         </div>
       )}
@@ -51,20 +56,25 @@ export default function AdminDashboard() {
       )}
 
       {status === 'ready' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Dashboard connected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-slate-500">
-              Service date {stats.serviceDate} · {stats.totals.activeDoctors} active doctors across{' '}
-              {stats.departments.length} departments.
-            </p>
-            <p className="mt-1 text-xs text-slate-400">
-              KPI cards, department statistics, and charts arrive in the next phase.
-            </p>
-          </CardContent>
-        </Card>
+        <>
+          {/* MVP_CHECKLIST.md M5: "Top KPI cards: total waiting, in consultation,
+              completed today, average wait time." Exactly these four — no more. */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard label="Total waiting" value={stats.totals.waiting} />
+            <StatCard label="In consultation" value={stats.totals.inConsultation} />
+            <StatCard label="Completed today" value={stats.totals.completedToday} />
+            <StatCard label="Avg wait" value={`${stats.totals.avgWaitMin} min`} />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Department statistics</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DepartmentTable departments={stats.departments} />
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
