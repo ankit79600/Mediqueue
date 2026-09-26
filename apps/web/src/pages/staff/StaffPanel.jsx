@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useDoctorQueue } from '@/hooks/useDoctorQueue.js';
 import { TokenCard } from '@/components/TokenCard.jsx';
 import { QueueTable } from '@/components/QueueTable.jsx';
@@ -9,14 +9,18 @@ import { QueueActions } from '@/components/QueueActions.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Button } from '@/components/ui/button.jsx';
-import { ApiError } from '@/lib/api.js';
+import { ApiError, onUnauthorized } from '@/lib/api.js';
 
+// API_CONTRACT.md §3 — every code this page can actually receive from E16-E20.
+// Falls back to the server-provided `message` (still contract data, never a
+// raw stack trace) for anything not explicitly mapped below.
 function errorMessage(err) {
   if (err instanceof ApiError) {
+    if (err.code === 'VALIDATION_ERROR') return 'That request was invalid. Please try again.';
+    if (err.code === 'UNAUTHENTICATED') return 'Your session expired. Redirecting to sign in…';
     if (err.code === 'FORBIDDEN') return "You don't have access to this doctor's queue.";
     if (err.code === 'DOCTOR_NOT_FOUND') return 'This doctor could not be found.';
     if (err.code === 'TOKEN_NOT_FOUND') return 'This token could not be found.';
-    if (err.code === 'UNAUTHENTICATED') return 'Your session expired. Please sign in again.';
     if (err.code === 'CONSULT_IN_PROGRESS') return 'A patient is already in consultation. Complete or skip them first.';
     if (err.code === 'QUEUE_EMPTY') return 'No patients are waiting.';
     if (err.code === 'INVALID_STATE') return "That action can't be completed — the queue state changed. Refreshed with the latest.";
@@ -26,6 +30,12 @@ function errorMessage(err) {
   return 'Could not load the queue. Check your connection and try again.';
 }
 
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+}
+
 export default function StaffPanel() {
   const { doctorId } = useParams();
   // Remount per doctorId instead of resetting hook state internally.
@@ -33,6 +43,7 @@ export default function StaffPanel() {
 }
 
 function DoctorQueuePanel({ doctorId }) {
+  const navigate = useNavigate();
   const {
     snapshot,
     status,
@@ -48,6 +59,96 @@ function DoctorQueuePanel({ doctorId }) {
     complete,
   } = useDoctorQueue(doctorId);
   const [skipResult, setSkipResult] = useState(null); // { tokenNo, result } | null
+  const [noShowArmed, setNoShowArmed] = useState(false);
+
+  // lib/api.js clears the token on any 401; this sends the user back to login
+  // instead of leaving them stranded on a now-unauthenticated page.
+  useEffect(() => onUnauthorized(() => navigate('/staff/login', { replace: true })), [navigate]);
+
+  const current = snapshot?.current ?? null;
+
+  const handleCallNext = useCallback(async () => {
+    setSkipResult(null);
+    setNoShowArmed(false);
+    try {
+      await callNext();
+    } catch {
+      // surfaced via actionError banner
+    }
+  }, [callNext]);
+
+  const handleSkip = useCallback(async () => {
+    if (!current) return;
+    setSkipResult(null);
+    setNoShowArmed(false);
+    try {
+      const res = await skip(current.id);
+      setSkipResult({ tokenNo: res.token.tokenNo, result: res.result });
+    } catch {
+      // surfaced via actionError banner
+    }
+  }, [current, skip]);
+
+  const handleConfirmNoShow = useCallback(async () => {
+    if (!current) return;
+    setSkipResult(null);
+    setNoShowArmed(false);
+    try {
+      await noShow(current.id);
+    } catch {
+      // surfaced via actionError banner
+    }
+  }, [current, noShow]);
+
+  const handleComplete = useCallback(async () => {
+    if (!current) return;
+    setSkipResult(null);
+    setNoShowArmed(false);
+    try {
+      await complete(current.id);
+    } catch {
+      // surfaced via actionError banner
+    }
+  }, [current, complete]);
+
+  // TEAM_TASKS.md C4: N = next, C = complete, S = skip, X = no-show (armed,
+  // press again to confirm — same as clicking "No-show" then "Confirm no-show?").
+  // Keyboard actions call the exact same handlers as the buttons and respect
+  // the same guards (nothing fires while an action is pending, while typing in
+  // a field, or when the relevant button wouldn't be shown/enabled anyway).
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTypingTarget(document.activeElement)) return;
+      if (actionPending) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'n') {
+        if (current) return; // Call Next isn't valid/shown while someone is CALLED
+        e.preventDefault();
+        handleCallNext();
+      } else if (key === 'c') {
+        if (!current || current.status !== 'CALLED') return;
+        e.preventDefault();
+        handleComplete();
+      } else if (key === 's') {
+        if (!current || current.status !== 'CALLED') return;
+        e.preventDefault();
+        handleSkip();
+      } else if (key === 'x') {
+        if (!current || current.status !== 'CALLED') return;
+        e.preventDefault();
+        if (noShowArmed) {
+          handleConfirmNoShow();
+        } else {
+          setNoShowArmed(true);
+        }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [actionPending, current, noShowArmed, handleCallNext, handleComplete, handleSkip, handleConfirmNoShow]);
 
   if (status === 'loading') {
     return (
@@ -81,44 +182,7 @@ function DoctorQueuePanel({ doctorId }) {
     );
   }
 
-  const { doctor, department, current, waiting, stats } = snapshot;
-
-  async function handleCallNext() {
-    setSkipResult(null);
-    try {
-      await callNext();
-    } catch {
-      // surfaced via actionError below
-    }
-  }
-
-  async function handleSkip() {
-    setSkipResult(null);
-    try {
-      const res = await skip(current.id);
-      setSkipResult({ tokenNo: res.token.tokenNo, result: res.result });
-    } catch {
-      // surfaced via actionError below
-    }
-  }
-
-  async function handleNoShow() {
-    setSkipResult(null);
-    try {
-      await noShow(current.id);
-    } catch {
-      // surfaced via actionError below
-    }
-  }
-
-  async function handleComplete() {
-    setSkipResult(null);
-    try {
-      await complete(current.id);
-    } catch {
-      // surfaced via actionError below
-    }
-  }
+  const { doctor, department, waiting, stats } = snapshot;
 
   return (
     <div className="flex flex-col gap-4">
@@ -164,11 +228,15 @@ function DoctorQueuePanel({ doctorId }) {
           <QueueActions
             current={current}
             pending={actionPending}
+            noShowArmed={noShowArmed}
             onCallNext={handleCallNext}
             onSkip={handleSkip}
-            onNoShow={handleNoShow}
+            onArmNoShow={() => setNoShowArmed(true)}
+            onCancelNoShow={() => setNoShowArmed(false)}
+            onConfirmNoShow={handleConfirmNoShow}
             onComplete={handleComplete}
           />
+          <p className="text-xs text-slate-400">Shortcuts: N next · C complete · S skip · X no-show</p>
         </div>
         <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-2 lg:grid-cols-4">
           <StatCard label="Served today" value={stats.servedToday} />
