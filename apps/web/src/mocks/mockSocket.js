@@ -30,8 +30,15 @@ let connectionState = 'live';
 const connectionListeners = new Set();
 const eventListeners = new Map(); // event -> Set(handler)
 
+function setConnectionState(next) {
+  if (next === connectionState) return;
+  connectionState = next;
+  connectionListeners.forEach((cb) => cb(connectionState));
+}
+
 export function subscribe(event, payload, { onSnapshot } = {}) {
   const build = SNAPSHOT_BY_EVENT[event];
+  console.debug('[mockSocket] subscribe', event, payload);
   return new Promise((resolve, reject) => {
     if (!build) {
       reject(new Error(`mockSocket: no fixture wired for "${event}"`));
@@ -43,8 +50,9 @@ export function subscribe(event, payload, { onSnapshot } = {}) {
   });
 }
 
-export function unsubscribe() {
-  // no-op: fixtures don't hold live room membership
+export function unsubscribe(room) {
+  console.debug('[mockSocket] unsubscribe', room);
+  // no-op otherwise: fixtures don't hold live room membership
 }
 
 export function on(event, handler) {
@@ -68,5 +76,14 @@ export function onConnectionChange(handler) {
 }
 
 export function connect() {
-  connectionState = 'live';
+  setConnectionState('live');
+}
+
+/** Test-only: drive SOCKET_CONTRACT.md §6's polling-fallback / reconnect path
+ * without a real Socket.IO server. Not used by any production code path. */
+export function simulateOffline() {
+  setConnectionState('offline');
+}
+export function simulateOnline() {
+  setConnectionState('live');
 }

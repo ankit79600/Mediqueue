@@ -36,6 +36,7 @@ export function useDoctorQueue(doctorId) {
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState(null);
   const [connection, setConnection] = useState(socket.getConnectionState());
+  const [pollingActive, setPollingActive] = useState(false);
   const [actionPending, setActionPending] = useState(null); // null | 'call-next' | `skip:${id}` | ...
   const [actionError, setActionError] = useState(null);
   const generatedAtRef = useRef(null);
@@ -129,26 +130,36 @@ export function useDoctorQueue(doctorId) {
     };
   }, [doctorId, applySnapshot]);
 
-  // Polling fallback per SOCKET_CONTRACT.md §6 (only ever triggers against the
-  // real socket — mockSocket's connection state is always "live").
+  // Polling fallback per SOCKET_CONTRACT.md §6: >5s disconnected -> poll E16
+  // every 10s; stop polling as soon as the socket is no longer offline.
+  // ConnectionPill's three documented states (Live/Polling/Offline) need to
+  // distinguish "just disconnected" from "now actively polling", hence the
+  // separate pollingActive flag rather than reusing `connection` directly.
   useEffect(() => {
-    clearTimeout(offlineTimerRef.current);
     if (connection === 'offline') {
       offlineTimerRef.current = setTimeout(() => {
+        setPollingActive(true);
         fetchOnce();
         pollIntervalRef.current = setInterval(fetchOnce, 10000);
       }, 5000);
-    } else {
-      clearInterval(pollIntervalRef.current);
     }
-    return () => clearTimeout(offlineTimerRef.current);
+    // Cleanup runs both on unmount and on every re-run of this effect (i.e.
+    // whenever `connection` changes) — reconnecting cancels any pending timer
+    // and turns polling back off, without setState in the effect body itself.
+    return () => {
+      clearTimeout(offlineTimerRef.current);
+      clearInterval(pollIntervalRef.current);
+      setPollingActive(false);
+    };
   }, [connection, fetchOnce]);
+
+  const connectionDisplay = connection === 'live' ? 'live' : pollingActive ? 'polling' : connection;
 
   return {
     snapshot,
     status,
     error,
-    connection,
+    connection: connectionDisplay,
     refetch: fetchOnce,
     actionPending,
     actionError,
