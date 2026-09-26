@@ -9,9 +9,9 @@ The system connects patients, doctors/staff, and administrators through a shared
 
 | Member | Role | Main Responsibilities | Technologies / Tools Used |
 |---|---|---|---|
-| **Member 1 — [Name]** | Backend & Database | Authentication, backend APIs, queue/business logic, database integration, realtime backend, seed/demo data | **Node.js, Express, Socket.IO, PostgreSQL 16, Prisma, JWT, bcrypt, Docker** |
-| **Member 2 — [Name]** | Patient Frontend & Shared Frontend Foundation | Patient-facing flows, frontend foundation, API/auth/socket utilities, mock fixtures and shared patient-side functionality | **React 18, Vite, Tailwind CSS, shadcn/ui, React Router, JavaScript, Socket.IO client** |
-| **Member 3 — [Name]** | Staff & Admin Frontend | Staff login/role guard, doctor queue panel, queue actions, realtime queue updates, admin dashboard, statistics, charts, notification/SMS log, simulator controls | **React 18, Vite, Tailwind CSS, shadcn/ui, React Router, JavaScript, Lucide React, Recharts, Socket.IO client** |
+| **Member 1 — [Ankit patel]** | Backend & Database | Authentication, backend APIs, queue/business logic, database integration, realtime backend, seed/demo data | **Node.js, Express, Socket.IO, PostgreSQL 16, Prisma, JWT, bcrypt, Docker** |
+| **Member 2 — [Sweta jha ]** | Patient Frontend & Shared Frontend Foundation | Patient-facing flows, frontend foundation, API/auth/socket utilities, mock fixtures and shared patient-side functionality | **React 18, Vite, Tailwind CSS, shadcn/ui, React Router, JavaScript, Socket.IO client** |
+| **Member 3 — [Aryan choudhary]** | Staff & Admin Frontend | Staff login/role guard, doctor queue panel, queue actions, realtime queue updates, admin dashboard, statistics, charts, notification/SMS log, simulator controls | **React 18, Vite, Tailwind CSS, shadcn/ui, React Router, JavaScript, Lucide React, Recharts, Socket.IO client** |
 
 > **Team structure:** The project documentation defines four implementation roles, but this hackathon team is working with three members. The three-member mapping above covers the active responsibilities used by the team.
 
@@ -220,11 +220,11 @@ MediQueue is designed to reduce OPD waiting uncertainty by giving patients live 
 
 ### Contributors
 
-**Member 1 — [Name]**  
+**Member 1 — [Ankit patel]**  
 Backend / Database / Realtime
 
-**Member 2 — [Name]**  
+**Member 2 — [Sweta jha ]**  
 Patient Frontend / Shared Frontend Foundation
 
-**Member 3 — [Name]**  
+**Member 3 — [Aryan choudhary]**  
 Staff / Admin Frontend
