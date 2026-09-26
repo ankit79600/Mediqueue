@@ -1,0 +1,39 @@
+{
+  "name": "@mediqueue/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "migrate": "prisma migrate deploy",
+    "seed": "prisma db seed",
+    "studio": "prisma studio",
+    "smoke": "node scripts/smoke.mjs",
+    "test:queue": "node scripts/queue-test.mjs",
+    "test:socket": "node scripts/socket-smoke.mjs"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@mediqueue/shared": "*",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "socket.io-client": "^4.8.4"
+  }
+}

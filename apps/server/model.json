@@ -1,0 +1,7 @@
+{
+  "_comment": "Sample linear regression model for ETA (A12). waitBase = remainingCurrentMin + peopleAhead * avgConsultMin. Replace with a model trained on real visit data.",
+  "intercept": 1,
+  "coefficients": {
+    "waitBase": 0.92
+  }
+}
