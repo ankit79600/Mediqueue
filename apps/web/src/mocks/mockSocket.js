@@ -8,15 +8,18 @@
 // Kept deliberately separate from lib/socket.js (no mock-awareness in the real
 // client) per the project's mock/real separation rule.
 import { SOCKET_EVENTS, rooms } from '../lib/contract.js';
-import { queueSnapshot, adminStats, simulatorStatus } from './fixtures.js';
+import { adminStats, simulatorStatus } from './fixtures.js';
+import { getSnapshot } from './mockQueueEngine.js';
 
 export { SOCKET_EVENTS, rooms };
 
 const SNAPSHOT_BY_EVENT = {
-  [SOCKET_EVENTS.SUBSCRIBE_DOCTOR]: (payload) => ({
-    room: rooms.doctor(payload?.doctorId ?? 'doc-gm-1'),
-    snapshot: queueSnapshot,
-  }),
+  // Sourced from mockQueueEngine (not the static fixture) so the initial
+  // snapshot and every later queue action read/write the same mutable state.
+  [SOCKET_EVENTS.SUBSCRIBE_DOCTOR]: (payload) => {
+    const doctorId = payload?.doctorId ?? 'doc-gm-1';
+    return { room: rooms.doctor(doctorId), snapshot: getSnapshot(doctorId) };
+  },
   [SOCKET_EVENTS.SUBSCRIBE_ADMIN]: () => ({
     room: rooms.admin(),
     snapshot: { stats: adminStats, simulator: simulatorStatus },
