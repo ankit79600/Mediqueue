@@ -192,14 +192,23 @@ export const simulatorStatus = {
   actionsPerformed: 0,
 };
 
+// Fake but *shaped* JWT so lib/auth.js's decodeToken() (real base64url decode,
+// no signature check) can read it like a real one. Claims per API_CONTRACT.md §1.
+function fakeJwt(payload) {
+  const base64url = (obj) =>
+    btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const now = Math.floor(Date.now() / 1000);
+  return `${base64url({ alg: 'none' })}.${base64url({ iat: now, exp: now + 43200, ...payload })}.mock-signature`;
+}
+
 export const staffLoginResponse = {
-  accessToken: 'mock.jwt.staff',
+  accessToken: fakeJwt({ sub: 'staff-1', role: 'STAFF', doctorId: 'doc-gm-1', deptId: 'dept-gm' }),
   expiresIn: 43200,
   staff: { id: 'staff-1', name: 'Dr. A. Sen', role: 'STAFF', doctorId: 'doc-gm-1', departmentId: 'dept-gm' },
 };
 
 export const adminLoginResponse = {
-  accessToken: 'mock.jwt.admin',
+  accessToken: fakeJwt({ sub: 'staff-admin', role: 'ADMIN', doctorId: null, deptId: null }),
   expiresIn: 43200,
   staff: { id: 'staff-admin', name: 'Admin', role: 'ADMIN', doctorId: null, departmentId: null },
 };

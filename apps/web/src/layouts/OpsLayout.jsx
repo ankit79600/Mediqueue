@@ -1,15 +1,32 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { ConnectionPill } from '@/components/ConnectionPill.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { getUser, logout } from '@/lib/auth.js';
 
 // Desktop shell (1366px target, FINAL_PROJECT_STRUCTURE.md §3) for /staff/* and /admin/*.
 export function OpsLayout() {
+  const navigate = useNavigate();
+  const user = getUser();
+
+  function handleLogout() {
+    logout();
+    navigate('/staff/login', { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <Link to="/" className="text-sm font-semibold text-slate-900">
           MediQueue
         </Link>
-        <ConnectionPill state="connecting" />
+        <div className="flex items-center gap-3">
+          <ConnectionPill state="connecting" />
+          {user && (
+            <Button variant="ghost" onClick={handleLogout}>
+              Log out
+            </Button>
+          )}
+        </div>
       </header>
       <main className="p-6">
         <Outlet />
