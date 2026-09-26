@@ -162,6 +162,36 @@ export const adminStats = {
       loadPerDoctor: 4.5,
       longestWaitMin: 30,
     },
+    {
+      departmentId: 'dept-ort',
+      name: 'Orthopaedics',
+      code: 'ORT',
+      queueLength: 6,
+      inConsultation: 1,
+      completedToday: 10,
+      noShowToday: 1,
+      avgWaitMin: 15.0,
+      avgConsultMin: 9.0,
+      activeDoctors: 1,
+      loadPerDoctor: 6.0,
+      longestWaitMin: 22,
+    },
+    {
+      // Deliberately includes zero values (inConsultation, noShowToday) to
+      // exercise the "zero-value data renders correctly" case in 3B testing.
+      departmentId: 'dept-gyn',
+      name: 'Gynaecology',
+      code: 'GYN',
+      queueLength: 3,
+      inConsultation: 0,
+      completedToday: 8,
+      noShowToday: 0,
+      avgWaitMin: 8.5,
+      avgConsultMin: 10.5,
+      activeDoctors: 1,
+      loadPerDoctor: 3.0,
+      longestWaitMin: 12,
+    },
   ],
   hourly: [
     { hour: '09:00', arrivals: 22, completed: 15 },
@@ -180,7 +210,29 @@ export const notifications = [
     toPhoneMasked: '98XXXXXX33',
     message: 'MediQueue: GM-013, you are 3rd in line for Dr. A. Sen (OPD-01). Est. wait 16 min.',
     status: 'SENT',
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 2 * 60000).toISOString(),
+  },
+  {
+    id: 'notif-2',
+    tokenId: 'tok-gm-011',
+    tokenNo: 'GM-011',
+    kind: 'CALLED',
+    channel: 'SMS_SIMULATED',
+    toPhoneMasked: '98XXXXXX10',
+    message: 'MediQueue: GM-011, please proceed to Dr. A. Sen (OPD-01) now.',
+    status: 'SENT',
+    createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
+  },
+  {
+    id: 'notif-3',
+    tokenId: 'tok-gm-012',
+    tokenNo: 'GM-012',
+    kind: 'TOKEN_CREATED',
+    channel: 'IN_APP',
+    toPhoneMasked: '98XXXXXX22',
+    message: 'MediQueue: GM-012 created for General Medicine.',
+    status: 'SENT',
+    createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
   },
 ];
 
@@ -192,14 +244,23 @@ export const simulatorStatus = {
   actionsPerformed: 0,
 };
 
+// Fake but *shaped* JWT so lib/auth.js's decodeToken() (real base64url decode,
+// no signature check) can read it like a real one. Claims per API_CONTRACT.md §1.
+function fakeJwt(payload) {
+  const base64url = (obj) =>
+    btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const now = Math.floor(Date.now() / 1000);
+  return `${base64url({ alg: 'none' })}.${base64url({ iat: now, exp: now + 43200, ...payload })}.mock-signature`;
+}
+
 export const staffLoginResponse = {
-  accessToken: 'mock.jwt.staff',
+  accessToken: fakeJwt({ sub: 'staff-1', role: 'STAFF', doctorId: 'doc-gm-1', deptId: 'dept-gm' }),
   expiresIn: 43200,
   staff: { id: 'staff-1', name: 'Dr. A. Sen', role: 'STAFF', doctorId: 'doc-gm-1', departmentId: 'dept-gm' },
 };
 
 export const adminLoginResponse = {
-  accessToken: 'mock.jwt.admin',
+  accessToken: fakeJwt({ sub: 'staff-admin', role: 'ADMIN', doctorId: null, deptId: null }),
   expiresIn: 43200,
   staff: { id: 'staff-admin', name: 'Admin', role: 'ADMIN', doctorId: null, departmentId: null },
 };
