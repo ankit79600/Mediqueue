@@ -1,55 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UserRound, Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api.js';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Card, CardContent } from '@/components/ui/card.jsx';
+import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { Button } from '@/components/ui/button.jsx';
 
-const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
-
-function errorMessage(err) {
-  if (err instanceof ApiError) {
-    if (err.code === 'VALIDATION_ERROR') {
-      const fields = err.details?.fields ?? {};
-      if (fields.name) return `Name: ${fields.name}`;
-      if (fields.age) return `Age: ${fields.age}`;
-      return 'Check your details and try again.';
-    }
-    if (err.code === 'CONSENT_REQUIRED') return 'You must give consent to continue.';
-    return err.message;
-  }
-  return 'Could not save profile. Try again.';
-}
-
-export default function PatientProfile() {
+export default function Profile() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', age: '', gender: '', consent: false });
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('idle'); // idle | pending | error
+  const [form, setForm] = useState({ name: '', age: '', gender: '' });
+  const [consent, setConsent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.get('/patients/me')
-      .then((patient) => {
-        setForm({
-          name: patient.name ?? '',
-          age: patient.age != null ? String(patient.age) : '',
-          gender: patient.gender ?? '',
-          consent: !!patient.consentAt,
-        });
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    api.get('/patients/me').then((data) => {
+      if (data.name) setForm({ name: data.name ?? '', age: data.age?.toString() ?? '', gender: data.gender ?? '' });
+      if (data.consent) setConsent(true);
+    }).catch(() => {});
   }, []);
 
-  function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-  }
+  const canSubmit = form.name.trim().length >= 2 &&
+    Number(form.age) >= 0 && Number(form.age) <= 120 && form.age !== '' &&
+    consent;
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setStatus('pending');
+    if (!canSubmit) return;
+    setLoading(true);
     setError(null);
     try {
       await api.put('/patients/me', {
@@ -60,50 +39,39 @@ export default function PatientProfile() {
       });
       navigate('/patient/tokens', { replace: true });
     } catch (err) {
-      setStatus('error');
-      setError(errorMessage(err));
+      if (err instanceof ApiError) setError(err.message);
+      else setError('Could not save profile. Try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
-  const canSubmit =
-    status !== 'pending' &&
-    form.name.trim().length >= 2 &&
-    form.age !== '' &&
-    Number(form.age) >= 0 &&
-    Number(form.age) <= 120 &&
-    form.consent;
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-slate-500">Loading…</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-center text-lg">Complete Your Profile</CardTitle>
-          <p className="mt-1 text-center text-sm text-slate-500">
-            Required before booking a token
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="name">Full name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Riya Das"
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                disabled={status === 'pending'}
-                required
-              />
+    <Card className="mt-4">
+      <CardContent className="pt-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-1">
+            <div className="mb-1 flex size-11 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[#0284c7]">
+              <UserRound className="size-5" aria-hidden="true" />
             </div>
+            <h1 className="text-lg font-semibold text-[#0f172a]">Complete your profile</h1>
+            <p className="text-sm text-[#5b6b82]">We need a few details before booking your token.</p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="name">Full name</Label>
+            <Input
+              id="name"
+              placeholder="e.g. Rahul Sharma"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              disabled={loading}
+              className="h-11"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="age">Age</Label>
               <Input
@@ -112,51 +80,54 @@ export default function PatientProfile() {
                 inputMode="numeric"
                 min={0}
                 max={120}
-                placeholder="34"
+                placeholder="e.g. 35"
                 value={form.age}
-                onChange={(e) => set('age', e.target.value)}
-                disabled={status === 'pending'}
+                onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="gender">
-                Gender <span className="font-normal text-slate-400">(optional)</span>
-              </Label>
+              <Label htmlFor="gender">Gender <span className="font-normal text-[#5b6b82]">(opt.)</span></Label>
               <select
                 id="gender"
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 disabled:opacity-50"
                 value={form.gender}
-                onChange={(e) => set('gender', e.target.value)}
-                disabled={status === 'pending'}
+                onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+                disabled={loading}
+                className="h-11 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm outline-none focus:border-[#0284c7] focus:ring-2 focus:ring-[#0284c7]/20 disabled:opacity-50"
               >
                 <option value="">Select…</option>
-                {GENDERS.map((g) => (
-                  <option key={g} value={g}>
-                    {g.charAt(0) + g.slice(1).toLowerCase()}
-                  </option>
-                ))}
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
               </select>
             </div>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
-                checked={form.consent}
-                onChange={(e) => set('consent', e.target.checked)}
-                disabled={status === 'pending'}
-              />
-              <span className="text-slate-700">
-                I consent to MediQueue storing and using my data for queue management.
-              </span>
-            </label>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={!canSubmit}>
-              {status === 'pending' ? 'Saving…' : 'Save & Continue'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              disabled={loading}
+              className="mt-0.5 size-4 rounded accent-[#0284c7]"
+            />
+            <span className="text-sm text-[#5b6b82]">
+              I consent to MediQueue processing my health data for queue management.
+            </span>
+          </label>
+
+          {error && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          )}
+
+          <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={!canSubmit || loading}>
+            {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+            {loading ? 'Saving…' : 'Save & Continue'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

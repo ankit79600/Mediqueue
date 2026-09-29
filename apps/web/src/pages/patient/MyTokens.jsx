@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Clock, Ticket, ChevronRight, Plus, Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api.js';
-import { logout } from '@/lib/auth.js';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
-import { PriorityBadge } from '@/components/PriorityBadge.jsx';
 
 function formatWait(min) {
   if (min == null) return '—';
@@ -14,25 +13,22 @@ function formatWait(min) {
 }
 
 function formatTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return '';
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function MyTokens() {
   const navigate = useNavigate();
-  const [active, setActive] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(null);
 
-  const load = useCallback(async () => {
+  const fetchTokens = useCallback(async () => {
     try {
-      const data = await api.get('/tokens/me');
-      setActive(data.active ?? []);
-      setHistory(data.history ?? []);
+      const res = await api.get('/tokens/me');
+      setData(res);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        logout();
         navigate('/patient/login', { replace: true });
       }
     } finally {
@@ -40,132 +36,131 @@ export default function MyTokens() {
     }
   }, [navigate]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetchTokens(); }, [fetchTokens]);
 
   async function handleCancel(tokenId) {
     setCancelling(tokenId);
     try {
       await api.delete(`/tokens/${tokenId}`);
-    } catch {
-      // INVALID_STATE = no longer WAITING; refresh shows reality
+      fetchTokens();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'INVALID_STATE') fetchTokens();
     } finally {
       setCancelling(null);
-      load();
     }
-  }
-
-  function handleLogout() {
-    logout();
-    navigate('/patient/login', { replace: true });
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-slate-500">Loading…</p>
+      <div className="flex flex-col items-center justify-center py-16 text-[#5b6b82]">
+        <Loader2 className="size-6 animate-spin" />
+        <p className="mt-2 text-sm">Loading tokens…</p>
       </div>
     );
   }
 
+  const active = data?.active ?? [];
+  const history = data?.history ?? [];
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-900">My Tokens</h1>
-        <div className="flex gap-2">
-          <Button onClick={() => navigate('/patient/book')}>+ Book</Button>
-          <Button variant="ghost" onClick={handleLogout}>Logout</Button>
-        </div>
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-[#0f172a]">My Tokens</h1>
+        <Button size="sm" onClick={() => navigate('/patient/book')} className="gap-1.5">
+          <Plus className="size-4" aria-hidden="true" />
+          Book
+        </Button>
       </div>
 
-      {active.length === 0 && history.length === 0 && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-sm text-slate-500">No tokens today.</p>
-            <Button onClick={() => navigate('/patient/book')} className="mt-4">
-              Book a token
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {active.length > 0 && (
-        <section className="mb-6">
-          <h2 className="mb-2 text-sm font-medium text-slate-500">Active</h2>
+      {/* Active tokens */}
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#5b6b82]">Active</p>
+        {active.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-[#eef2f7]">
+                <Ticket className="size-6 text-[#5b6b82]" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-medium text-[#0f172a]">No active tokens</p>
+                <p className="mt-0.5 text-sm text-[#5b6b82]">Book a token to join the queue.</p>
+              </div>
+              <Button onClick={() => navigate('/patient/book')}>Book a token</Button>
+            </CardContent>
+          </Card>
+        ) : (
           <div className="flex flex-col gap-3">
             {active.map((token) => (
               <Card key={token.id}>
-                <CardHeader className="flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base">{token.tokenNo}</CardTitle>
-                  <div className="flex gap-1.5">
-                    <PriorityBadge priority={token.priority} />
+                <CardContent className="pt-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-3xl font-bold tracking-tight text-[#0f172a]">{token.tokenNo}</p>
+                      <p className="mt-0.5 text-sm font-medium text-[#5b6b82]">{token.departmentName}</p>
+                      <p className="text-xs text-[#5b6b82]">{token.doctorName}</p>
+                    </div>
                     <StatusBadge status={token.status} />
                   </div>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-xs text-slate-500">Department</p>
-                    <p className="font-medium">{token.departmentName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Doctor</p>
-                    <p className="font-medium">{token.doctorName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">People ahead</p>
-                    <p className="font-medium">
-                      {token.status === 'CALLED' ? 'In consultation' : (token.peopleAhead ?? '—')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Est. wait</p>
-                    <p className="font-medium">{formatWait(token.estimatedWaitMin)}</p>
+
+                  {token.status === 'WAITING' && (
+                    <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-[#f4f7fb] p-3">
+                      <div>
+                        <p className="text-xs text-[#5b6b82]">People ahead</p>
+                        <p className="text-lg font-bold text-[#0f172a]">{token.peopleAhead ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#5b6b82]">Est. wait</p>
+                        <p className="text-lg font-bold text-[#0284c7]">{formatWait(token.estimatedWaitMin)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <Link
+                      to={`/patient/tokens/${token.id}`}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e0f2fe] py-2 text-sm font-medium text-[#0284c7] hover:bg-[#bae6fd] transition-colors"
+                    >
+                      Track live
+                      <ChevronRight className="size-4" aria-hidden="true" />
+                    </Link>
+                    {token.status === 'WAITING' && (
+                      <button
+                        onClick={() => handleCancel(token.id)}
+                        disabled={cancelling === token.id}
+                        className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        {cancelling === token.id ? <Loader2 className="size-4 animate-spin" /> : 'Cancel'}
+                      </button>
+                    )}
                   </div>
                 </CardContent>
-                <div className="flex gap-2 px-4 pb-4">
-                  <Link
-                    to={`/patient/tokens/${token.id}`}
-                    className="flex-1 rounded-md border border-slate-300 bg-white py-1.5 text-center text-sm font-medium hover:bg-slate-50"
-                  >
-                    Track live
-                  </Link>
-                  {token.status === 'WAITING' && (
-                    <Button
-                      variant="outline"
-                      className="text-red-600 hover:border-red-300 hover:bg-red-50"
-                      disabled={cancelling === token.id}
-                      onClick={() => handleCancel(token.id)}
-                    >
-                      {cancelling === token.id ? 'Cancelling…' : 'Cancel'}
-                    </Button>
-                  )}
-                </div>
               </Card>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
+      {/* History */}
       {history.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-slate-500">Today's history</h2>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#5b6b82]">History</p>
           <div className="flex flex-col gap-2">
             {history.map((token) => (
-              <Card key={token.id} className="opacity-75">
-                <CardContent className="flex items-center justify-between py-3">
+              <div
+                key={token.id}
+                className="flex items-center justify-between rounded-2xl border border-[#e2e8f0] bg-white/70 px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 items-center justify-center rounded-xl bg-[#eef2f7]">
+                    <Clock className="size-4 text-[#5b6b82]" aria-hidden="true" />
+                  </div>
                   <div>
-                    <p className="font-medium text-slate-800">{token.tokenNo}</p>
-                    <p className="text-xs text-slate-500">
-                      {token.departmentName} · {token.doctorName}
-                    </p>
+                    <p className="text-sm font-semibold text-[#0f172a]">{token.tokenNo}</p>
+                    <p className="text-xs text-[#5b6b82]">{token.departmentName} · {formatTime(token.createdAt)}</p>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <StatusBadge status={token.status} />
-                    <p className="text-xs text-slate-400">
-                      {formatTime(token.endedAt ?? token.calledAt)}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+                <StatusBadge status={token.status} />
+              </div>
             ))}
           </div>
         </section>

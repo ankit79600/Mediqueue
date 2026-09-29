@@ -1,123 +1,109 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Clock, Users, Ticket, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api.js';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 
+function formatWait(min) {
+  if (min == null) return '—';
+  if (min < 1) return '< 1 min';
+  return `~${Math.round(min)} min`;
+}
+
 const PRIORITIES = [
-  { value: 'NONE', label: 'None' },
+  { value: 'NONE', label: 'Standard' },
   { value: 'ELDERLY', label: 'Elderly (60+)' },
   { value: 'PREGNANT', label: 'Pregnant' },
 ];
 
-function errorMessage(err) {
-  if (err instanceof ApiError) {
-    if (err.code === 'NO_ACTIVE_DOCTOR') return 'No doctors are active in this department right now.';
-    if (err.code === 'DOCTOR_INACTIVE') return 'The selected doctor is not currently active.';
-    if (err.code === 'SLOT_FULL') return 'This slot is full. Please choose another.';
-    return err.message;
-  }
-  return 'Could not book token. Try again.';
-}
-
 export default function Book() {
   const navigate = useNavigate();
   const [departments, setDepartments] = useState([]);
+  const [step, setStep] = useState(1); // 1 = pick dept, 2 = pick doctor+priority
+  const [selectedDept, setSelectedDept] = useState(null);
+  const [doctorId, setDoctorId] = useState('');
+  const [priority, setPriority] = useState('NONE');
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState('dept'); // dept | options
-  const [selected, setSelected] = useState({ dept: null, doctor: null, priority: 'NONE' });
-  const [status, setStatus] = useState('idle'); // idle | pending | error
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     api.get('/departments')
       .then((data) => setDepartments(data.departments ?? []))
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 401) {
-          navigate('/patient/login', { replace: true });
-        }
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, [navigate]);
+  }, []);
 
   async function handleBook() {
-    setStatus('pending');
+    setSubmitting(true);
     setError(null);
     try {
-      const token = await api.post('/tokens', {
-        departmentId: selected.dept.id,
-        doctorId: selected.doctor?.id ?? null,
+      const data = await api.post('/tokens', {
+        departmentId: selectedDept.id,
+        doctorId: doctorId || null,
         type: 'LIVE',
         slotId: null,
-        priority: selected.priority,
+        priority,
       });
-      navigate(`/patient/tokens/${token.id}`, { replace: true });
+      navigate(`/patient/tokens/${data.token.id}`, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 'PROFILE_INCOMPLETE') {
-          navigate('/patient/profile', { replace: true });
-          return;
-        }
-        if (err.code === 'ACTIVE_TOKEN_EXISTS') {
-          const existingId = err.details?.tokenId;
-          navigate(existingId ? `/patient/tokens/${existingId}` : '/patient/tokens', { replace: true });
-          return;
-        }
-        if (err.status === 401) {
-          navigate('/patient/login', { replace: true });
-          return;
-        }
+        if (err.code === 'PROFILE_INCOMPLETE') navigate('/patient/profile', { replace: true });
+        else if (err.code === 'ACTIVE_TOKEN_EXISTS') {
+          const tokenId = err.details?.tokenId;
+          navigate(tokenId ? `/patient/tokens/${tokenId}` : '/patient/tokens', { replace: true });
+        } else setError(err.message);
+      } else {
+        setError('Could not book token. Try again.');
       }
-      setStatus('error');
-      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-slate-500">Loading departments…</p>
+      <div className="flex flex-col items-center justify-center py-16 text-[#5b6b82]">
+        <Loader2 className="size-6 animate-spin" />
+        <p className="mt-2 text-sm">Loading departments…</p>
       </div>
     );
   }
 
-  if (step === 'dept') {
+  if (step === 1) {
     return (
-      <div className="min-h-screen bg-slate-50 p-4">
-        <div className="mb-4 flex items-center gap-3">
-          <button
-            onClick={() => navigate('/patient/tokens')}
-            className="text-slate-400 hover:text-slate-600"
-          >
-            ← Back
-          </button>
-          <h1 className="text-lg font-semibold text-slate-900">Select Department</h1>
+      <div className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-[#0f172a]">Select Department</h1>
+          <p className="mt-0.5 text-sm text-[#5b6b82]">Which department do you need today?</p>
         </div>
         <div className="flex flex-col gap-3">
           {departments.map((dept) => {
-            const activeDoctors = dept.doctors.filter((d) => d.isActive).length;
+            const activeDocs = dept.doctors?.filter((d) => d.isActive).length ?? 0;
             return (
-              <Card
+              <button
                 key={dept.id}
-                className="cursor-pointer transition-shadow hover:shadow-md"
-                onClick={() => {
-                  setSelected((s) => ({ ...s, dept, doctor: null }));
-                  setStep('options');
-                }}
+                onClick={() => { setSelectedDept(dept); setStep(2); }}
+                disabled={activeDocs === 0}
+                className="flex items-center justify-between rounded-2xl border border-[#e2e8f0] bg-white p-4 text-left shadow-sm transition-all hover:border-[#0284c7]/40 hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <CardContent className="flex items-center justify-between py-4">
-                  <div>
-                    <p className="font-semibold text-slate-900">{dept.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {activeDoctors} doctor{activeDoctors !== 1 ? 's' : ''} active
-                    </p>
+                <div>
+                  <p className="font-semibold text-[#0f172a]">{dept.name}</p>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-[#5b6b82]">
+                    <span className="flex items-center gap-1">
+                      <Users className="size-3" aria-hidden="true" />
+                      {dept.queueLength ?? 0} waiting
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="size-3" aria-hidden="true" />
+                      {formatWait(dept.estimatedWaitMin)}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-800">{dept.queueLength} waiting</p>
-                    <p className="text-xs text-slate-500">~{dept.estimatedWaitMin} min wait</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  {activeDocs === 0 && <p className="mt-1 text-xs text-amber-600">No active doctors</p>}
+                </div>
+                <ChevronRight className="size-5 text-[#5b6b82]" aria-hidden="true" />
+              </button>
             );
           })}
         </div>
@@ -125,89 +111,95 @@ export default function Book() {
     );
   }
 
-  // step === 'options'
-  const activeDoctors = selected.dept?.doctors.filter((d) => d.isActive) ?? [];
+  const activeDoctors = selectedDept.doctors?.filter((d) => d.isActive) ?? [];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
-      <div className="mb-4 flex items-center gap-3">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
         <button
-          onClick={() => { setStep('dept'); setError(null); setStatus('idle'); }}
-          className="text-slate-400 hover:text-slate-600"
+          onClick={() => setStep(1)}
+          className="flex size-9 items-center justify-center rounded-xl bg-white border border-[#e2e8f0] text-[#5b6b82] hover:text-[#0f172a] transition-colors"
         >
-          ← Back
+          <ArrowLeft className="size-4" aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900">{selected.dept?.name}</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-[#0f172a]">{selectedDept.name}</h1>
+          <p className="text-sm text-[#5b6b82]">Choose your preferences</p>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Doctor</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 p-3 hover:bg-slate-50">
-              <input
-                type="radio"
-                name="doctor"
-                checked={selected.doctor === null}
-                onChange={() => setSelected((s) => ({ ...s, doctor: null }))}
-              />
-              <div>
-                <p className="text-sm font-medium">Auto-assign</p>
-                <p className="text-xs text-slate-500">Doctor with shortest queue</p>
+      <Card>
+        <CardContent className="flex flex-col gap-5 pt-5">
+          {activeDoctors.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-[#0f172a]">Doctor <span className="font-normal text-[#5b6b82]">(optional)</span></p>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-[#e2e8f0] px-4 py-3 hover:bg-[#f4f7fb] transition-colors has-[:checked]:border-[#0284c7] has-[:checked]:bg-[#e0f2fe]/40">
+                  <input
+                    type="radio"
+                    name="doctor"
+                    value=""
+                    checked={doctorId === ''}
+                    onChange={() => setDoctorId('')}
+                    className="accent-[#0284c7]"
+                  />
+                  <span className="text-sm font-medium text-[#0f172a]">Auto-assign</span>
+                </label>
+                {activeDoctors.map((doc) => (
+                  <label
+                    key={doc.id}
+                    className="flex items-center gap-3 cursor-pointer rounded-xl border border-[#e2e8f0] px-4 py-3 hover:bg-[#f4f7fb] transition-colors has-[:checked]:border-[#0284c7] has-[:checked]:bg-[#e0f2fe]/40"
+                  >
+                    <input
+                      type="radio"
+                      name="doctor"
+                      value={doc.id}
+                      checked={doctorId === doc.id}
+                      onChange={() => setDoctorId(doc.id)}
+                      className="accent-[#0284c7]"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-[#0f172a]">{doc.name}</p>
+                      <p className="text-xs text-[#5b6b82]">{doc.room}</p>
+                    </div>
+                  </label>
+                ))}
               </div>
-            </label>
-            {activeDoctors.map((doc) => (
-              <label
-                key={doc.id}
-                className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 p-3 hover:bg-slate-50"
-              >
-                <input
-                  type="radio"
-                  name="doctor"
-                  checked={selected.doctor?.id === doc.id}
-                  onChange={() => setSelected((s) => ({ ...s, doctor: doc }))}
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{doc.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {doc.room} · {doc.queueLength} waiting · ~{doc.avgConsultMin} min/patient
-                  </p>
-                </div>
-              </label>
-            ))}
-          </CardContent>
-        </Card>
+            </div>
+          )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Priority</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {PRIORITIES.map(({ value, label }) => (
-              <label
-                key={value}
-                className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 p-3 hover:bg-slate-50"
-              >
-                <input
-                  type="radio"
-                  name="priority"
-                  checked={selected.priority === value}
-                  onChange={() => setSelected((s) => ({ ...s, priority: value }))}
-                />
-                <p className="text-sm font-medium">{label}</p>
-              </label>
-            ))}
-          </CardContent>
-        </Card>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-[#0f172a]">Priority</p>
+            <div className="flex flex-col gap-1.5">
+              {PRIORITIES.map(({ value, label }) => (
+                <label
+                  key={value}
+                  className="flex items-center gap-3 cursor-pointer rounded-xl border border-[#e2e8f0] px-4 py-3 hover:bg-[#f4f7fb] transition-colors has-[:checked]:border-[#0284c7] has-[:checked]:bg-[#e0f2fe]/40"
+                >
+                  <input
+                    type="radio"
+                    name="priority"
+                    value={value}
+                    checked={priority === value}
+                    onChange={() => setPriority(value)}
+                    className="accent-[#0284c7]"
+                  />
+                  <span className="text-sm font-medium text-[#0f172a]">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          )}
 
-        <Button onClick={handleBook} disabled={status === 'pending'} className="w-full">
-          {status === 'pending' ? 'Booking…' : 'Confirm Booking'}
-        </Button>
-      </div>
+          <Button size="lg" className="h-11 w-full text-base" disabled={submitting} onClick={handleBook}>
+            {submitting && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+            {submitting ? 'Booking…' : 'Confirm & Get Token'}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

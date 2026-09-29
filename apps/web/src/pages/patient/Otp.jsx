@@ -1,64 +1,49 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { ShieldCheck, ArrowLeft, Loader2, RotateCcw } from 'lucide-react';
 import { api, ApiError } from '@/lib/api.js';
 import { setToken } from '@/lib/auth.js';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { Input } from '@/components/ui/input.jsx';
-import { Label } from '@/components/ui/label.jsx';
+import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 
-function errorMessage(err) {
-  if (err instanceof ApiError) {
-    if (err.code === 'OTP_INVALID') {
-      const left = err.details?.attemptsLeft;
-      return left != null
-        ? `Wrong OTP. ${left} attempt${left === 1 ? '' : 's'} left.`
-        : 'Wrong OTP.';
-    }
-    if (err.code === 'OTP_EXPIRED') return 'OTP has expired. Request a new one.';
-    if (err.code === 'OTP_TOO_MANY_ATTEMPTS') return 'Too many wrong attempts. Request a new OTP.';
-    if (err.code === 'VALIDATION_ERROR') return 'Enter the 6-digit OTP.';
-    return err.message;
-  }
-  return 'Could not verify OTP. Try again.';
-}
-
-export default function PatientOtp() {
+export default function Otp() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { phone, devOtp: initialDevOtp, resendAfterSec = 30 } = location.state ?? {};
+  const { state } = useLocation();
+  const { phone, devOtp, resendAfterSec = 30 } = state ?? {};
 
-  const [code, setCode] = useState('');
-  const [devOtp, setDevOtp] = useState(initialDevOtp);
-  const [status, setStatus] = useState('idle'); // idle | pending | error
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [countdown, setCountdown] = useState(resendAfterSec);
-  const [resending, setResending] = useState(false);
-  const timerRef = useRef(null);
+  const inputRefs = useRef([]);
 
   useEffect(() => {
-    if (!phone) {
-      navigate('/patient/login', { replace: true });
-      return;
-    }
-    startCountdown(resendAfterSec);
-    return () => clearInterval(timerRef.current);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!phone) navigate('/patient/login', { replace: true });
+  }, [phone, navigate]);
 
-  function startCountdown(from) {
-    clearInterval(timerRef.current);
-    setCountdown(from);
-    timerRef.current = setInterval(() => {
-      setCountdown((n) => {
-        if (n <= 1) { clearInterval(timerRef.current); return 0; }
-        return n - 1;
-      });
-    }, 1000);
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [countdown]);
+
+  function handleChange(i, val) {
+    const digit = val.replace(/\D/g, '').slice(-1);
+    const next = [...otp];
+    next[i] = digit;
+    setOtp(next);
+    if (digit && i < 5) inputRefs.current[i + 1]?.focus();
+    if (next.every(Boolean)) submitOtp(next.join(''));
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setStatus('pending');
+  function handleKeyDown(i, e) {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) {
+      inputRefs.current[i - 1]?.focus();
+    }
+  }
+
+  async function submitOtp(code) {
+    setLoading(true);
     setError(null);
     try {
       const data = await api.post('/auth/otp/verify', { phone, code });
@@ -69,83 +54,113 @@ export default function PatientOtp() {
         navigate('/patient/tokens', { replace: true });
       }
     } catch (err) {
-      setStatus('error');
-      setError(errorMessage(err));
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+      if (err instanceof ApiError) {
+        if (err.code === 'INVALID_OTP') setError('Incorrect code. Please try again.');
+        else if (err.code === 'OTP_EXPIRED') setError('Code expired. Request a new one.');
+        else setError(err.message);
+      } else {
+        setError('Verification failed. Check your connection.');
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleResend() {
-    setResending(true);
-    setError(null);
     try {
-      const data = await api.post('/auth/otp/request', { phone });
-      setDevOtp(data.devOtp ?? null);
-      startCountdown(data.resendAfterSec ?? 30);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setResending(false);
+      await api.post('/auth/otp/request', { phone });
+      setCountdown(resendAfterSec);
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+      setError(null);
+    } catch {
+      setError('Could not resend. Try again.');
     }
   }
 
-  const maskedPhone = phone?.replace(/^(\d{2})\d{6}(\d{2})$/, '$1XXXXXX$2');
+  if (!phone) return null;
+
+  const otpValue = otp.join('');
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-center text-lg">Enter OTP</CardTitle>
-          <p className="mt-1 text-center text-sm text-slate-500">
-            Sent to {maskedPhone}
-          </p>
-        </CardHeader>
-        <CardContent>
+    <Card className="mt-4">
+      <CardContent className="pt-5">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-1">
+            <div className="mb-1 flex size-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+              <ShieldCheck className="size-5" aria-hidden="true" />
+            </div>
+            <h1 className="text-lg font-semibold text-[#0f172a]">Enter verification code</h1>
+            <p className="text-sm text-[#5b6b82]">
+              Code sent to <span className="font-medium text-[#0f172a]">+91 {phone.replace(/(\d{5})(\d{5})/, '$1 $2')}</span>
+            </p>
+          </div>
+
           {devOtp && (
-            <div className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
-              SMS simulated — your OTP is <strong>{devOtp}</strong>
+            <div className="rounded-xl bg-[#e0f2fe] px-4 py-3">
+              <p className="text-xs font-medium text-[#075985]">Demo mode — your OTP is</p>
+              <p className="mt-0.5 text-2xl font-bold tracking-widest text-[#0284c7]">{devOtp}</p>
             </div>
           )}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="otp">6-digit OTP</Label>
-              <Input
-                id="otp"
+
+          {/* OTP boxes */}
+          <div className="flex justify-center gap-2" role="group" aria-label="6-digit OTP">
+            {otp.map((digit, i) => (
+              <input
+                key={i}
+                ref={(el) => { inputRefs.current[i] = el; }}
                 type="text"
                 inputMode="numeric"
-                placeholder="——————"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                disabled={status === 'pending'}
-                required
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleChange(i, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(i, e)}
+                disabled={loading}
+                className="size-12 rounded-xl border border-[#cbd5e1] bg-white text-center text-xl font-semibold text-[#0f172a] outline-none transition-all focus:border-[#0284c7] focus:ring-2 focus:ring-[#0284c7]/20 disabled:opacity-50"
+                aria-label={`Digit ${i + 1}`}
               />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={status === 'pending' || code.length < 6}>
-              {status === 'pending' ? 'Verifying…' : 'Verify OTP'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={countdown > 0 || resending}
-              onClick={handleResend}
-            >
-              {resending
-                ? 'Sending…'
-                : countdown > 0
-                  ? `Resend OTP in ${countdown}s`
-                  : 'Resend OTP'}
-            </Button>
-          </form>
-          <button
-            type="button"
-            onClick={() => navigate('/patient/login')}
-            className="mt-4 w-full text-center text-xs text-slate-400 hover:text-slate-600"
+            ))}
+          </div>
+
+          {error && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          )}
+
+          <Button
+            size="lg"
+            className="h-11 w-full text-base"
+            disabled={otpValue.length !== 6 || loading}
+            onClick={() => submitOtp(otpValue)}
           >
-            Wrong number? Go back
-          </button>
-        </CardContent>
-      </Card>
-    </div>
+            {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+            {loading ? 'Verifying…' : 'Verify & Continue'}
+          </Button>
+
+          <div className="flex items-center justify-between text-sm">
+            <Link
+              to="/patient/login"
+              className="inline-flex items-center gap-1 text-[#5b6b82] hover:text-[#0f172a]"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Change number
+            </Link>
+            {countdown > 0 ? (
+              <span className="text-[#5b6b82]">Resend in {countdown}s</span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                className="inline-flex items-center gap-1 font-medium text-[#0284c7] hover:underline"
+              >
+                <RotateCcw className="size-3" aria-hidden="true" />
+                Resend code
+              </button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
