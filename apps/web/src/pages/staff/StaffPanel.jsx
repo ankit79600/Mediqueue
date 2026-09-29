@@ -188,8 +188,8 @@ function DoctorQueuePanel({ doctorId }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">{doctor.name}</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-bold tracking-tight text-[#0f172a]">{doctor.name}</h1>
+          <p className="text-sm text-[#5b6b82]">
             {department.name} · {doctor.room}
           </p>
         </div>
@@ -236,7 +236,7 @@ function DoctorQueuePanel({ doctorId }) {
             onConfirmNoShow={handleConfirmNoShow}
             onComplete={handleComplete}
           />
-          <p className="text-xs text-slate-400">Shortcuts: N next · C complete · S skip · X no-show</p>
+          <p className="text-xs text-[#5b6b82]">Shortcuts: N next · C complete · S skip · X no-show</p>
         </div>
         <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-2 lg:grid-cols-4">
           <StatCard label="Served today" value={stats.servedToday} />

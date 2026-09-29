@@ -6,9 +6,6 @@ import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { ApiError } from '@/lib/api.js';
 
-// MVP_CHECKLIST.md M6: "Simulated SMS written to notifications... visible
-// live on /admin/sms." API_CONTRACT.md §2.10 Notification shape, E22 for
-// history, notification:new for live rows (handled in useAdminNotifications).
 function errorMessage(err) {
   if (err instanceof ApiError) {
     if (err.code === 'FORBIDDEN') return "You don't have admin access.";
@@ -36,8 +33,8 @@ export default function SmsLog() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">Simulated SMS log</h1>
-        <Link to="/admin" className="text-sm text-slate-500 underline-offset-2 hover:underline">
+        <h1 className="text-xl font-bold tracking-tight text-[#0f172a]">Simulated SMS log</h1>
+        <Link to="/admin" className="text-sm text-[#5b6b82] underline-offset-2 hover:underline">
           Back to dashboard
         </Link>
       </div>
@@ -67,7 +64,7 @@ export default function SmsLog() {
       {status === 'ready' && items.length === 0 && (
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm text-slate-500">No notifications yet.</p>
+            <p className="text-sm text-[#5b6b82]">No notifications yet.</p>
           </CardContent>
         </Card>
       )}
@@ -75,19 +72,19 @@ export default function SmsLog() {
       {status === 'ready' && items.length > 0 && (
         <Card>
           <CardContent className="flex flex-col gap-3 p-0">
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-[#e2e8f0]">
               {items.map((n) => (
                 <div key={n.id} className="flex items-start justify-between gap-3 p-4">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <Badge variant={KIND_VARIANT[n.kind] ?? 'default'}>{n.kind}</Badge>
-                      <span className="text-xs text-slate-400">{n.channel}</span>
-                      <span className="text-xs font-medium text-slate-600">{n.tokenNo}</span>
+                      <span className="text-xs text-[#5b6b82]">{n.channel}</span>
+                      <span className="text-xs font-medium text-[#0f172a]">{n.tokenNo}</span>
                     </div>
-                    <p className="text-sm text-slate-700">{n.message}</p>
-                    <p className="text-xs text-slate-400">To {n.toPhoneMasked}</p>
+                    <p className="text-sm text-[#0f172a]">{n.message}</p>
+                    <p className="text-xs text-[#5b6b82]">To {n.toPhoneMasked}</p>
                   </div>
-                  <span className="whitespace-nowrap text-xs text-slate-400">{formatTime(n.createdAt)}</span>
+                  <span className="whitespace-nowrap text-xs text-[#5b6b82]">{formatTime(n.createdAt)}</span>
                 </div>
               ))}
             </div>

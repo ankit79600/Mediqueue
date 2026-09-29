@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Stethoscope, Lock, Loader2, LayoutDashboard } from 'lucide-react';
 import { api, ApiError } from '@/lib/api.js';
 import { setToken } from '@/lib/auth.js';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -10,8 +11,6 @@ import { staffLoginResponse, adminLoginResponse, departments } from '@/mocks/fix
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
-// API_CONTRACT.md E4 `POST /auth/staff/login`. Mocked path only stands in for
-// the real endpoint when VITE_USE_MOCKS=true — same response shape either way.
 async function loginStaff({ username, password }) {
   if (USE_MOCKS) {
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -22,8 +21,6 @@ async function loginStaff({ username, password }) {
   return api.post('/auth/staff/login', { username, password });
 }
 
-// API_CONTRACT.md E7 `GET /departments` — used only to build the ADMIN
-// "pick a doctor" list (no dedicated picker route exists in FINAL_PROJECT_STRUCTURE.md §3).
 async function loadDepartments() {
   if (USE_MOCKS) {
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -44,9 +41,9 @@ function errorMessage(err) {
 export default function StaffLogin() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: '', password: '' });
-  const [status, setStatus] = useState('idle'); // idle | pending | error
+  const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
-  const [doctorChoices, setDoctorChoices] = useState(null); // set only for ADMIN
+  const [doctorChoices, setDoctorChoices] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -72,67 +69,93 @@ export default function StaffLogin() {
 
   if (doctorChoices) {
     return (
-      <div className="mx-auto flex max-w-md flex-col gap-4">
-        <Button onClick={() => navigate('/admin')}>Open admin dashboard</Button>
-        <Card>
-          <CardHeader>
-            <CardTitle>…or open a doctor's queue directly</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {doctorChoices.length === 0 && <p className="text-sm text-slate-500">No doctors found.</p>}
-            {doctorChoices.map((doc) => (
-              <Button
-                key={doc.id}
-                variant="outline"
-                className="justify-between"
-                onClick={() => navigate(`/staff/doctors/${doc.id}`)}
-              >
-                <span>{doc.name}</span>
-                <span className="text-slate-500">{doc.deptName} · {doc.room}</span>
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
+      <div className="mx-auto flex max-w-md flex-col gap-4 py-8">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold text-[#0f172a]">Welcome, Admin</h1>
+          <p className="text-sm text-[#5b6b82]">Choose where to go</p>
+        </div>
+
+        <Button size="lg" className="h-11 w-full gap-2 text-base" onClick={() => navigate('/admin')}>
+          <LayoutDashboard className="size-4" aria-hidden="true" />
+          Open admin dashboard
+        </Button>
+
+        {doctorChoices.length > 0 && (
+          <Card>
+            <CardContent className="flex flex-col gap-2 pt-5">
+              <p className="text-sm font-medium text-[#0f172a]">Or open a doctor's queue directly</p>
+              <div className="flex flex-col gap-1.5">
+                {doctorChoices.map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => navigate(`/staff/doctors/${doc.id}`)}
+                    className="flex items-center justify-between rounded-xl border border-[#e2e8f0] bg-white px-4 py-3 text-left hover:border-[#0284c7]/40 hover:bg-[#e0f2fe]/30 transition-all"
+                  >
+                    <span className="text-sm font-medium text-[#0f172a]">{doc.name}</span>
+                    <span className="text-xs text-[#5b6b82]">{doc.deptName} · {doc.room}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-sm">
+    <div className="mx-auto max-w-sm py-8">
       <Card>
-        <CardHeader>
-          <CardTitle>Staff / Admin login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                autoComplete="username"
-                value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                disabled={status === 'pending'}
-                required
-              />
+        <CardContent className="pt-5">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <div className="mb-1 flex size-11 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[#0284c7]">
+                <Stethoscope className="size-5" aria-hidden="true" />
+              </div>
+              <h1 className="text-lg font-semibold text-[#0f172a]">Staff / Admin Login</h1>
+              <p className="text-sm text-[#5b6b82]">Sign in to access the OPD dashboard</p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                disabled={status === 'pending'}
-                required
-              />
-            </div>
-            {status === 'error' && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={status === 'pending'}>
-              {status === 'pending' ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </form>
+
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  autoComplete="username"
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                  disabled={status === 'pending'}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#5b6b82]" aria-hidden="true" />
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    className="pl-9"
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    disabled={status === 'pending'}
+                    required
+                  />
+                </div>
+              </div>
+
+              {status === 'error' && (
+                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+              )}
+
+              <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={status === 'pending'}>
+                {status === 'pending' && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                {status === 'pending' ? 'Signing in…' : 'Sign in'}
+              </Button>
+            </form>
+          </div>
         </CardContent>
       </Card>
     </div>

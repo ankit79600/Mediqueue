@@ -18,7 +18,7 @@ export function SimulatorControls({ simulator, pending, onStart, onStop, onReset
         <CardTitle>Simulator &amp; demo</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-[#5b6b82]">
           {running
             ? `Running at ${simulator.speed}x · ${simulator.tokensCreated} tokens created · ${simulator.actionsPerformed} actions performed`
             : 'Simulator stopped.'}
