@@ -65,9 +65,12 @@ function ensureSocket() {
   });
   socket.on('disconnect', () => setConnectionState('offline'));
   socket.on('connect_error', (err) => {
+    console.error('[socket] connect_error:', err?.message ?? err);
     if (err?.message === 'UNAUTHENTICATED') clearToken();
     setConnectionState('offline');
   });
+  // socket.io manager events — fires before each reconnection attempt
+  socket.io.on('reconnect_attempt', () => setConnectionState('reconnecting'));
 
   return socket;
 }
@@ -105,9 +108,10 @@ export function getConnectionState() {
   return connectionState;
 }
 
-/** Returns an unsubscribe fn. */
+/** Returns an unsubscribe fn. Calling this eagerly starts the socket if not yet open. */
 export function onConnectionChange(handler) {
   connectionListeners.add(handler);
+  ensureSocket(); // any component watching connection state needs an actual connection
   return () => connectionListeners.delete(handler);
 }
 

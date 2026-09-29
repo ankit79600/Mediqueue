@@ -10,6 +10,7 @@
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import config from '../config.js';
+import { buildCorsOrigin } from '../lib/cors.js';
 import { registerHandlers } from './handlers.js';
 import { etaTick } from './emitters.js';
 
@@ -20,7 +21,7 @@ const ETA_TICK_MS = 30_000; // SOCKET_CONTRACT §5 T7
 export function initIo(httpServer) {
   _io = new Server(httpServer, {
     cors: {
-      origin:  config.CORS_ORIGIN,
+      origin:  buildCorsOrigin(config.CORS_ORIGIN),
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],

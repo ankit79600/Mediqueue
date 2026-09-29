@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import config from './config.js';
+import { buildCorsOrigin } from './lib/cors.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import healthRoutes from './routes/health.routes.js';
 
@@ -24,7 +25,7 @@ app.use(helmet());
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: config.CORS_ORIGIN,
+  origin: buildCorsOrigin(config.CORS_ORIGIN),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Kiosk-Key', 'X-Actor'],
   credentials: false, // Bearer header is used, not cookies
