@@ -188,7 +188,7 @@ function DoctorQueuePanel({ doctorId }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900">{doctor.name}</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{doctor.name}</h1>
           <p className="text-sm text-slate-500">
             {department.name} · {doctor.room}
           </p>

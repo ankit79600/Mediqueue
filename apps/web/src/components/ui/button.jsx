@@ -2,9 +2,9 @@ import { forwardRef } from 'react';
 import { cn } from '@/lib/utils.js';
 
 const VARIANTS = {
-  default: 'bg-slate-900 text-white hover:bg-slate-700',
-  outline: 'border border-slate-300 bg-white hover:bg-slate-50',
-  destructive: 'bg-red-600 text-white hover:bg-red-500',
+  default: 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-500',
+  outline: 'border border-slate-300 bg-white hover:border-indigo-300 hover:bg-indigo-50',
+  destructive: 'bg-red-600 text-white shadow-sm hover:bg-red-500',
   ghost: 'hover:bg-slate-100',
 };
 

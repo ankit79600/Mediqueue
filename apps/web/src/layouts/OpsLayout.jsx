@@ -29,8 +29,9 @@ export function OpsLayout() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <Link to="/" className="text-sm font-semibold text-slate-900">
+      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
+        <Link to="/" className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-900">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-600" />
           MediQueue
         </Link>
         <div className="flex items-center gap-3">
