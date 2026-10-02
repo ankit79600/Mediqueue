@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { staffLoginResponse, adminLoginResponse, departments } from '@/mocks/fixtures.js';
+import SoftAurora from '@/components/SoftAurora.jsx';
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
@@ -104,60 +105,67 @@ export default function StaffLogin() {
   }
 
   return (
-    <div className="mx-auto max-w-sm py-8">
-      <Card>
-        <CardContent className="pt-5">
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1">
-              <div className="mb-1 flex size-11 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[#0284c7]">
-                <Stethoscope className="size-5" aria-hidden="true" />
-              </div>
-              <h1 className="text-lg font-semibold text-[#0f172a]">Staff / Admin Login</h1>
-              <p className="text-sm text-[#5b6b82]">Sign in to access the OPD dashboard</p>
-            </div>
-
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  autoComplete="username"
-                  value={form.username}
-                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                  disabled={status === 'pending'}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#5b6b82]" aria-hidden="true" />
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    className="pl-9"
-                    value={form.password}
-                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                    disabled={status === 'pending'}
-                    required
-                  />
+    <div className="relative -mx-4 -mt-5 min-h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <SoftAurora speed={0.15} brightness={0.45} color1="#dbeafe" color2="#a5f3fc" />
+      </div>
+      <div className="relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <Card className="shadow-xl">
+            <CardContent className="pt-5">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-1">
+                  <div className="mb-1 flex size-11 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[#0284c7]">
+                    <Stethoscope className="size-5" aria-hidden="true" />
+                  </div>
+                  <h1 className="text-lg font-semibold text-[#0f172a]">Staff / Admin Login</h1>
+                  <p className="text-sm text-[#5b6b82]">Sign in to access the OPD dashboard</p>
                 </div>
+
+                <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      autoComplete="username"
+                      value={form.username}
+                      onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                      disabled={status === 'pending'}
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#5b6b82]" aria-hidden="true" />
+                      <Input
+                        id="password"
+                        type="password"
+                        autoComplete="current-password"
+                        className="pl-9"
+                        value={form.password}
+                        onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                        disabled={status === 'pending'}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {status === 'error' && (
+                    <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+                  )}
+
+                  <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={status === 'pending'}>
+                    {status === 'pending' && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                    {status === 'pending' ? 'Signing in…' : 'Sign in'}
+                  </Button>
+                </form>
               </div>
-
-              {status === 'error' && (
-                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-              )}
-
-              <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={status === 'pending'}>
-                {status === 'pending' && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-                {status === 'pending' ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

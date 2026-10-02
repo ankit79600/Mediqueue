@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, MapPin, Stethoscope, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, MapPin, Stethoscope, X, Loader2, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { api, ApiError } from '@/lib/api.js';
 import { subscribe, unsubscribe, on, onConnectionChange, getConnectionState } from '@/lib/socket.js';
 import { SOCKET_EVENTS, rooms } from '@/lib/contract.js';
@@ -256,6 +257,39 @@ export default function TokenLive() {
           )}
         </CardContent>
       </Card>
+
+      {/* QR code card */}
+      {token.trackUrl && !isEnded && (
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-[#e0f2fe]">
+                <QrCode className="size-4 text-[#0284c7]" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#0f172a]">Share your token</p>
+                <p className="text-xs text-[#5b6b82]">Family can track live — no login needed</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-[#e2e8f0]">
+                <QRCodeSVG
+                  value={token.trackUrl}
+                  size={200}
+                  bgColor="#ffffff"
+                  fgColor="#0f172a"
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+              <p className="text-lg font-bold tracking-widest text-[#0f172a]">{token.tokenNo}</p>
+              <p className="text-center text-xs text-[#5b6b82] max-w-[220px]">
+                Scan to see queue position &amp; ETA in real time
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {token.status === 'WAITING' && (
         <button

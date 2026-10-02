@@ -46,7 +46,7 @@ export default function Book() {
         slotId: null,
         priority,
       });
-      navigate(`/patient/tokens/${data.token.id}`, { replace: true });
+      navigate(`/patient/tokens/${data.id}`, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 'PROFILE_INCOMPLETE') navigate('/patient/profile', { replace: true });
